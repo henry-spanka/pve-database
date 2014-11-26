@@ -1,0 +1,279 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use PVE::SafeSyslog;
+use POSIX ":sys_wait_h";
+use Fcntl ':flock';
+use Getopt::Long;
+use Time::HiRes qw (gettimeofday);
+use PVE::Tools qw(dir_glob_foreach file_read_firstline);
+use PVE::ProcFSTools;
+use Filesys::Df;
+use PVE::INotify;
+use PVE::Cluster qw(cfs_read_file);
+use PVE::Storage;
+use PVE::QemuServer;
+use PVE::OpenVZ;
+use PVE::RPCEnvironment;
+use PVE::API2::Subscription;
+use PVE::AutoBalloon;
+use PVE::Database;
+use Data::Dumper;
+
+$SIG{'__WARN__'} = sub {
+    my $err = $@;
+    my $t = $_[0];
+    chomp $t;
+    syslog('warning', "WARNING: %s", $t);
+    $@ = $err;
+};
+
+initlog('pvedatabased');
+
+$ENV{'PATH'} = '/sbin:/bin:/usr/sbin:/usr/bin';
+
+die "please run as root\n" if $> != 0;
+
+my $nodename = PVE::INotify::nodename();
+
+my $opt_debug;
+
+if (!GetOptions ('debug' => \$opt_debug)) {
+    die "USAGE: $0 [--debug]\n";
+}
+
+my $opt_pidfile = "/var/run/pvedatabased.pid";
+
+sub lockpidfile {
+    my $pidfile = shift;
+    my $lkfn = "$pidfile.lock";
+
+    if (!open (FLCK, ">>$lkfn")) {
+	my $msg = "can't aquire lock on file '$lkfn' - $!";
+	syslog ('err', $msg);
+	die "ERROR: $msg\n";
+    }
+
+    if (!flock (FLCK, LOCK_EX|LOCK_NB)) {
+	close (FLCK);
+        my $msg = "can't aquire lock '$lkfn' - $!";
+	syslog ('err', $msg);
+	die "ERROR: $msg\n";
+    }
+}
+
+sub writepidfile {
+    my $pidfile = shift;
+
+    if (!open (PIDFH, ">$pidfile")) {
+	my $msg = "can't open pid file '$pidfile' - $!";
+	syslog ('err', $msg);
+	die "ERROR: $msg\n";
+    } 
+    print PIDFH "$$\n";
+    close (PIDFH);
+}
+
+# try to get the lock
+lockpidfile($opt_pidfile);
+
+# run in background
+my $spid;
+
+my $restart = $ENV{RESTART_PVEDATABASED};
+
+if (!$opt_debug) {
+    open STDIN,  '</dev/null' || die "can't read /dev/null";
+    open STDOUT, '>/dev/null' || die "can't write /dev/null";
+}
+
+if (!$restart && !$opt_debug) {
+    $spid = fork();
+    if (!defined ($spid)) {
+	my $msg =  "can't put server into background - fork failed";
+	syslog('err', $msg);
+	die "ERROR: $msg\n";
+    } elsif ($spid) { #parent
+	exit (0);
+    }
+}
+
+writepidfile($opt_pidfile);
+
+open STDERR, '>&STDOUT' || die "can't close STDERR\n";
+
+sub cleanup {
+    unlink "$opt_pidfile.lock";
+    unlink "$opt_pidfile";
+}
+ 
+$SIG{INT} = $SIG{TERM} = $SIG{QUIT} = sub { 
+    syslog('info' , "server closing");
+
+    $SIG{INT} = 'DEFAULT';
+
+    # wait for children
+    1 while (waitpid(-1, POSIX::WNOHANG()) > 0);
+
+    cleanup();
+
+    exit (0);
+};
+
+PVE::INotify::inotify_init();
+
+my $reload_config;
+
+if ($restart) {
+    syslog('info' , "restarting server");
+} else {
+    syslog('info' , "starting server");
+}
+
+$SIG{HUP} = sub { 
+    $reload_config = 1;
+};
+
+sub update_qemu_status {
+    my $vmstatus = PVE::QemuServer::vmstatus(undef, 1);
+
+    foreach my $vmid (keys %$vmstatus) {
+		my $d = $vmstatus->{$vmid};
+		PVE::Database::update_vm_network($d, $vmid);
+	}
+}
+
+sub update_openvz_status {
+    my $vmstatus = PVE::OpenVZ::vmstatus();
+
+    foreach my $vmid (keys %$vmstatus) {
+		my $d = $vmstatus->{$vmid};
+		PVE::Database::update_vm_network($d, $vmid);
+	}
+}
+
+sub update_status {
+
+    # update worker list. This is not really required and
+    # we just call this to make sure that we have a correct
+    # list in case of an unexpected crash.
+    my $err;
+
+    eval {
+		update_qemu_status();
+    };
+    $err = $@;
+    syslog('err', "qemu status update error: $err") if $err;
+
+    eval {
+		update_openvz_status();
+    };
+    $err = $@;
+    syslog('err', "openvz status update error: $err") if $err;
+}
+
+my $next_update = 0;
+
+# do not update directly after startup, because install scripts
+# have a problem with that
+my $cycle = 0; 
+my $updatetime = 10;
+
+my $commandline = [$0, @ARGV];
+
+$0 = "pvedatabased";
+
+sub restart_server {
+    my $waittime = shift;
+
+    syslog('info', "server shutdown (restart)");
+
+    $ENV{RESTART_PVEDATABASED} = 1;
+
+    sleep($waittime) if $waittime; # avoid high server load due to restarts
+
+    PVE::INotify::inotify_close();
+
+    exec (@$commandline);
+    exit (-1); # never reached?
+}
+
+my $initial_memory_usage;
+
+for (;;) { # forever
+
+    eval {
+	$next_update = time() + $updatetime;
+
+	if ($cycle) {
+	    my ($ccsec, $cusec) = gettimeofday ();
+	    eval {
+			$reload_config = 0;
+			# syslog('info', "start status update");
+			PVE::Cluster::cfs_update();
+			update_status();
+	    };
+	    my $err = $@;
+
+	    if ($err) {
+			syslog('err', "status update error: $err");
+	    }
+
+	    my ($ccsec_end, $cusec_end) = gettimeofday ();
+	    my $cptime = ($ccsec_end-$ccsec) + ($cusec_end - $cusec)/1000000;
+
+	    syslog('info', sprintf("status update time (%.3f seconds)", $cptime))
+		if ($cptime > 5);
+	}
+
+	$cycle++;
+
+	my $mem = PVE::ProcFSTools::read_memory_usage();
+
+	if (!defined($initial_memory_usage) || ($cycle < 10)) {
+	    $initial_memory_usage = $mem->{resident};
+	} else {
+	    my $diff = $mem->{resident} - $initial_memory_usage;
+	    if ($diff > 5*1024*1024) {
+		syslog ('info', "restarting server after $cycle cycles to " .
+			"reduce memory usage (free $mem->{resident} ($diff) bytes)");
+		restart_server ();
+	    }
+	}
+
+	my $wcount = 0;
+	while ((time() < $next_update) && 
+	       ($wcount < $updatetime) && # protect against time wrap
+	       !$reload_config) { $wcount++; sleep (1); };
+    };
+
+    my $err = $@;
+    
+    if ($err) {
+		syslog ('err', "ERROR: $err");
+		restart_server(5);
+		exit (0);
+    }
+}
+
+exit (0);
+
+__END__
+
+=head1 NAME
+                                          
+pvedatabased - PVE Database Daemon
+
+=head1 SYNOPSIS
+
+pvedatabased
+
+=head1 DESCRIPTION
+
+Documentation is available at www.proxmox.com
+
+
+
+
+

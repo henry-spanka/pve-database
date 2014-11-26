@@ -19,6 +19,8 @@ use PVE::Tools qw(run_command lock_file dir_glob_foreach);
 use Encode;
 use PVE::QemuServer;
 use PVE::OpenVZ;
+use Time::Piece;
+use Time::Seconds;
 
 my $hostdb_conf_filename = "/etc/pve/local/host.db";
 my $pvedb_conf_dir = "/etc/pve/database";
@@ -28,22 +30,16 @@ my $empty_conf = {
 	network => {},
 };
 
-sub compile {
-	my ($vmid) = @_;
-	load_vmdb_conf($vmid);
-}
-
 sub load_vmdb_conf {
-    my ($vmid, $dir) = @_;
+    my ($vmid) = @_;
 
     my $vmdb_conf = {};
 
-    $dir = $pvedb_conf_dir if !defined($dir);
+    my $dir = $pvedb_conf_dir;
 
     my $filename = "$dir/$vmid.db";
     if (my $fh = IO::File->new($filename, O_RDONLY)) {
 		$vmdb_conf = parse_vmdb_config($filename, $fh);
-		$vmdb_conf->{vmid} = $vmid;
     }
 
     return $vmdb_conf;
@@ -101,11 +97,17 @@ sub copy_object_with_digest {
     foreach my $k (sort keys %$object) {
 		my $object1 = $object->{$k};
 		next if !defined($object1);
-		next if ref($object1) ne 'HASH';
-		foreach my $k1 (sort keys %$object1) {
-			
-			$res->{$k}->{$k1} = $object->{$k}->{$k1};
-			$sha->add("$k->$k1", ':', $object->{$k}->{$k1}, "\n");
+		if(ref($object1) eq 'HASH') {
+			foreach my $k1 (sort keys %$object1) {
+				
+				$res->{$k}->{$k1} = $object->{$k}->{$k1};
+				$sha->add("$k->$k1", ':', $object->{$k}->{$k1}, "\n");
+			}
+		} else {
+			my $v = $object->{$k};
+			next if !defined($v);
+			$res->{$k} = $object->{$k};
+			$sha->add("$k", ':', $v, "\n");
 		}
     }
 
@@ -127,7 +129,7 @@ sub parse_object_to_raw {
 		next if !$empty_conf->{$k};
 		$raw .= "[$k]\n";
 		foreach my $k1 (sort keys %$object1) {
-			$raw .= "$k1: $object->{$k}->{$k1}";
+			$raw .= "$k1: $object->{$k}->{$k1}\n";
 		}
 	}
 	return $raw;
@@ -157,6 +159,38 @@ sub remove_from_object {
 		delete($object->{$section}) if (!keys $object->{$section});
 	}
 	return $object;
+}
+
+sub update_vm_network {
+	my ($d, $vmid) = @_;
+	#print "NETIN: $d->{netin}\n";
+	#print "NETOUT: $d->{netout}\n";
+	my $currenttime = localtime;
+	my $currentdate = $currenttime->strftime("%d-%m-%Y");
+	my $futuredate = $currenttime->add_months(1)->strftime("%d-%m-%Y");
+	my $dbconf = load_vmdb_conf($vmid);
+	
+	if($dbconf->{network}->{resetdate} le $currentdate) {
+		$dbconf->{network}->{lastreset} = $currentdate;
+		$dbconf->{network}->{resetdate} = $futuredate;
+		$dbconf->{network}->{netin} = 0;
+		$dbconf->{network}->{netout} = 0;
+	}
+	if($dbconf->{network}->{netin_last} > $d->{netin}) {
+		$dbconf->{network}->{netin_last} = $dbconf->{network}->{netin} += $d->{netin};
+	} else {
+		$dbconf->{network}->{netin} += ($d->{netin} - $dbconf->{network}->{netin_last});
+	}
+	
+	if($dbconf->{network}->{netout_last} > $d->{netout}) {
+		$dbconf->{network}->{netout_last} = $dbconf->{network}->{netin} += $d->{netin};
+	} else {
+		$dbconf->{network}->{netout} += ($d->{netout} - $dbconf->{network}->{netout_last});	
+	}
+	
+	$dbconf->{network}->{netin_last} = $d->{netin};
+	$dbconf->{network}->{netout_last} = $d->{netout};
+	save_vmdb_conf($vmid, $dbconf);
 }
 
 1;

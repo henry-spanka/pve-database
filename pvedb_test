@@ -44,11 +44,11 @@ __PACKAGE__->register_method ({
 		vmid => get_standard_option('pve-vmid'),
 		
 	},
-	section => {
-		type => 'string',
-		description => "A section you want to query.",
-		optional => 1,
-	},		
+	#section => {
+	#	type => 'string',
+	#	description => "A section you want to query.",
+	#	optional => 1,
+	#},		
     },
     returns => { type => 'object',
 				properties => {
@@ -60,63 +60,59 @@ __PACKAGE__->register_method ({
 			   },
 
     code => sub {
-	my ($param) = @_;
+		my ($param) = @_;
 
-	my $dbconf = PVE::Database::compile($param->{vmid});
-
-	my ($conf, undef) = PVE::Database::copy_object_with_digest($dbconf);
-	print Dumper($conf) if
-	
-	return $conf;
-
+		my $dbconf = PVE::Database::load_vmdb_conf($param->{vmid});
+		my ($conf, undef) = PVE::Database::copy_object_with_digest($dbconf);
+		return $conf;
     }});
 	
-__PACKAGE__->register_method ({
-    name => 'set',
-    path => 'set',
-    method => 'POST',
-    description => "set database rules",
-    parameters => {
-    	additionalProperties => 0,
-	properties => {
-		node => get_standard_option('pve-node'),
-		vmid => get_standard_option('pve-vmid'),
-		digest => get_standard_option('pve-config-digest'),
-		delete => {
-		    type => 'string', format => 'pve-configid-list',
-		    description => "A list of settings you want to delete.",
-		    optional => 1,
-		},
-		delsection => {
-		    type => 'string',
-		    description => "A section where you want to delete values.",
-		    optional => 1,
-		},		
-	},
-    },
-    returns => { type => 'null' },
-
-    code => sub {
-	my ($param) = @_;
-
-	my $dbconf = PVE::Database::compile($param->{vmid});
-	my (undef, $digest) = PVE::Database::copy_object_with_digest($dbconf);
-	PVE::Tools::assert_if_modified($digest, $param->{digest});
-	if ($param->{delete} && $param->{delsection}) {
-		my @delete = PVE::Tools::split_list($param->{delete});
-		PVE::Database::remove_from_object($dbconf, $param->{delsection}, @delete);
-	 }
-	
-	PVE::Database::save_vmdb_conf($param->{vmid}, $dbconf);
-	return undef;
-
-    }});
+#__PACKAGE__->register_method ({
+#    name => 'set',
+#    path => 'set',
+#    method => 'POST',
+#    description => "set database rules",
+#    parameters => {
+#    	additionalProperties => 0,
+#	properties => {
+#		node => get_standard_option('pve-node'),
+#		vmid => get_standard_option('pve-vmid'),
+#		digest => get_standard_option('pve-config-digest'),
+#		delete => {
+#		    type => 'string', format => 'pve-configid-list',
+#		    description => "A list of settings you want to delete.",
+#		    optional => 1,
+#		},
+#		delsection => {
+#		    type => 'string',
+#		    description => "A section where you want to delete values.",
+#		    optional => 1,
+#		},		
+#	},
+#   },
+#    returns => { type => 'null' },
+#
+#    code => sub {
+#	my ($param) = @_;
+#
+#	my $dbconf = PVE::Database::compile($param->{vmid});
+#	my (undef, $digest) = PVE::Database::copy_object_with_digest($dbconf);
+#	PVE::Tools::assert_if_modified($digest, $param->{digest});
+#	if ($param->{delete} && $param->{delsection}) {
+#		my @delete = PVE::Tools::split_list($param->{delete});
+#		PVE::Database::remove_from_object($dbconf, $param->{delsection}, @delete);
+#	 }
+#	
+#	PVE::Database::save_vmdb_conf($param->{vmid}, $dbconf);
+#	return undef;
+#
+#    }});
 
 my $nodename = PVE::INotify::nodename();
 
 my $cmddef = {
     get => [ __PACKAGE__, 'get', []],
-	set => [ __PACKAGE__, 'set', []],
+#	set => [ __PACKAGE__, 'set', []],
 };
 
 my $cmd = shift;
