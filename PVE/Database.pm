@@ -21,14 +21,23 @@ use PVE::QemuServer;
 use PVE::OpenVZ;
 use Time::Piece;
 use Time::Seconds;
+use PVE::SafeSyslog;
 
 my $hostdb_conf_filename = "/etc/pve/local/host.db";
 my $pvedb_conf_dir = "/etc/pve/database";
 my $clusterdb_conf_filename = "$pvedb_conf_dir/cluster.db";
 
 my $empty_conf = {
-	network => {},
+	network => { bandwidth => 0},
 };
+
+sub new {
+	my ($class) = @_;
+	
+	my $rpcenv = PVE::RPCEnvironment->init('priv');
+	my $self = bless { rpcenv => $rpcenv };
+	return $self;
+}
 
 sub load_vmdb_conf {
     my ($vmid) = @_;
@@ -161,10 +170,22 @@ sub remove_from_object {
 	return $object;
 }
 
+sub stop_ct {
+	my ($vmid) = @_;
+		PVE::Tools::run_command(['vzctl', '--skiplock', 'stop', $vmid, '--fast']);
+}
+
+sub stop_vm {
+	my ($vmid) = @_;
+	
+	my $storecfg = PVE::Storage::config();
+		PVE::QemuServer::vm_stop($storecfg, $vmid, 1, 0,
+					 0, 0, undef, 0, undef);
+}
+
 sub update_vm_network {
-	my ($d, $vmid) = @_;
-	#print "NETIN: $d->{netin}\n";
-	#print "NETOUT: $d->{netout}\n";
+	my ($self, $d, $vmid) = @_;
+
 	my $currenttime = localtime;
 	my $currentdate = $currenttime->strftime("%d-%m-%Y");
 	my $futuredate = $currenttime->add_months(1)->strftime("%d-%m-%Y");
@@ -176,6 +197,11 @@ sub update_vm_network {
 		$dbconf->{network}->{netin} = 0;
 		$dbconf->{network}->{netout} = 0;
 	}
+	
+	if($dbconf->{network}->{bandwidth} >= ($dbconf->{network}->{netin} + $dbconf->{network}->{netout}) ) {
+		$dbconf->{network}->{netlock} = 0;
+	}
+	
 	if($dbconf->{network}->{netin_last} > $d->{netin}) {
 		$dbconf->{network}->{netin_last} = $dbconf->{network}->{netin} += $d->{netin};
 	} else {
@@ -187,9 +213,40 @@ sub update_vm_network {
 	} else {
 		$dbconf->{network}->{netout} += ($d->{netout} - $dbconf->{network}->{netout_last});	
 	}
+
+	if( ( ($dbconf->{network}->{netin} + $dbconf->{network}->{netout}) > $dbconf->{network}->{bandwidth} ) && $dbconf->{network}->{bandwidth} && $dbconf->{network}->{netlock} lt 1) {
+	
+		if(defined($d->{type}) && $d->{type} eq 'openvz') {
+			if(PVE::OpenVZ::check_running($vmid)) {
+				my $realcmd = sub {
+					my $upid = shift;
+					
+					print "Stopping CT $vmid because it exceeded the bandwidth limit of $dbconf->{network}->{bandwidth} bytes\n";
+					syslog('info', "stoping CT $vmid: $upid because it exceeded the bandwidth limit\n");
+					
+					stop_ct($vmid);
+					return;
+				};
+				$self->{rpcenv}->fork_worker('bwstop', $vmid, 'root@pam', $realcmd);
+			}
+		} elsif(PVE::QemuServer::check_running($vmid)) {
+			my $realcmd = sub {
+				my $upid = shift;
+
+				print "Stopping VM $vmid because it exceeded the bandwidth limit of $dbconf->{network}->{bandwidth} bytes\n";
+				syslog('info', "stoping VM $vmid: $upid because it exceeded the bandwidth limit\n");
+				
+				stop_vm($vmid);
+				return;
+			};
+			$self->{rpcenv}->fork_worker('bwstop', $vmid, 'root@pam', $realcmd);
+		}
+		$dbconf->{network}->{netlock} = 1;
+	}
 	
 	$dbconf->{network}->{netin_last} = $d->{netin};
 	$dbconf->{network}->{netout_last} = $d->{netout};
+	
 	save_vmdb_conf($vmid, $dbconf);
 }
 

@@ -135,12 +135,14 @@ $SIG{HUP} = sub {
     $reload_config = 1;
 };
 
+my $database = PVE::Database::new();
+
 sub update_qemu_status {
     my $vmstatus = PVE::QemuServer::vmstatus(undef, 1);
 
     foreach my $vmid (keys %$vmstatus) {
 		my $d = $vmstatus->{$vmid};
-		PVE::Database::update_vm_network($d, $vmid);
+		$database->update_vm_network($d, $vmid);
 	}
 }
 
@@ -149,7 +151,7 @@ sub update_openvz_status {
 
     foreach my $vmid (keys %$vmstatus) {
 		my $d = $vmstatus->{$vmid};
-		PVE::Database::update_vm_network($d, $vmid);
+		$database->update_vm_network($d, $vmid);
 	}
 }
 

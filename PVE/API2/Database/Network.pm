@@ -26,6 +26,11 @@ my $network_properties = {
 		type => 'string',
 		optional => 1,
     },
+	bandwidth => {
+		description => "Monthly maximum bandwidth",
+		type => 'integer',
+		optional => 1,
+	},
 };
 
 my $add_network_properties = sub {
