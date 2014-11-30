@@ -1,0 +1,27 @@
+#!/bin/sh
+
+set -e
+
+case "$1" in
+    configure)
+	update-rc.d pvedatabased defaults 21 79 >/dev/null
+	invoke-rc.d pvedatabased restart
+    ;;
+
+    triggered)
+        invoke-rc.d pvedatabased restart
+	exit 0
+    ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
+esac
+
+#DEBHELPER#
+
+exit 0
