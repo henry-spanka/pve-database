@@ -187,8 +187,8 @@ sub update_vm_network {
 	my ($self, $d, $vmid) = @_;
 
 	my $currenttime = localtime;
-	my $currentdate = $currenttime->strftime("%d-%m-%Y");
-	my $futuredate = $currenttime->add_months(1)->strftime("%d-%m-%Y");
+	my $currentdate = $currenttime->strftime("%Y%m%d");
+	my $futuredate = $currenttime->add_months(1)->strftime("%Y%m%d");
 	my $dbconf = load_vmdb_conf($vmid);
 	
 	if($dbconf->{network}->{resetdate} le $currentdate) {

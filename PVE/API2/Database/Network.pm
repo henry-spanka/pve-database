@@ -23,14 +23,15 @@ my $network_properties = {
     },
     resetdate => {
 		description => "Next reset date for traffic stats.",
-		type => 'string',
+		type => 'integer',
 		optional => 1,
+		minimum => 20141206,
     },
-	bandwidth => {
+    bandwidth => {
 		description => "Monthly maximum bandwidth",
 		type => 'integer',
 		optional => 1,
-	},
+    },
 };
 
 my $add_network_properties = sub {
