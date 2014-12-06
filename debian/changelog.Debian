@@ -1,3 +1,13 @@
+pve-database (1.0-2) unstable; urgency=low
+
+  * Fixed Date comparison (#28)
+
+  * Fixed complains about uninitialized
+
+  * Fixed packagerelease
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Sat, 06 Dec 2014 14:26:41 +0100
+
 pve-database (1.0-1) unstable; urgency=low
 
   * Initial package
