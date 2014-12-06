@@ -7,7 +7,7 @@ SUBDIRS = bin PVE
 ARCH=amd64
 GITVERSION:=$(shell cat .git/refs/heads/master)
 
-DEB=${PACKAGE}_${VERSION}-${PKGREL}_${ARCH}.deb
+DEB=${PACKAGE}_${VERSION}-${PACKAGERELEASE}_${ARCH}.deb
 
 all: ${DEB}
 
