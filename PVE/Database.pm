@@ -1,6 +1,7 @@
 package PVE::Database;
 
 use warnings;
+no warnings 'uninitialized';
 use strict;
 use POSIX;
 use Data::Dumper;
