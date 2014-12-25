@@ -35,7 +35,7 @@ my $empty_conf = {
 sub new {
 	my ($class) = @_;
 	
-	my $rpcenv = PVE::RPCEnvironment->init('priv');
+	my $rpcenv = PVE::RPCEnvironment->get();
 	my $self = bless { rpcenv => $rpcenv };
 	return $self;
 }
