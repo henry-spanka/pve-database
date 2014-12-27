@@ -5,7 +5,8 @@ use warnings;
 use PVE::JSONSchema qw(get_standard_option);
 use PVE::Cluster;
 use PVE::Database;
-use PVE::API2::Database::Network;
+use PVE::API2::Database::Network::CT;
+use PVE::API2::Database::Network::VM;
 
 use Data::Dumper; # fixme: remove
 
