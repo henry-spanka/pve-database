@@ -1,3 +1,13 @@
+pve-database (1.0-3) unstable; urgency=low
+
+  * we can now limit OpenVZ containers speed and qemu containers on the fly
+
+  * deleted deprecated Network class
+
+  * Moved PVE::API2::Database::Network in order to implement new host class and be independent
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Sun, 28 Dec 2014 14:53:28 +0100
+
 pve-database (1.0-2) unstable; urgency=low
 
   * Fixed Date comparison (#28)
