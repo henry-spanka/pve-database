@@ -245,7 +245,7 @@ sub Tc_SetContainerRules {
 	
 	$rate = int($rate * 8); # Calculate mb/s to mbit/s
 
-	return !$rate || !$nic || !$classid || !@ipaddresses;
+	return if (!$rate || !$nic || !$classid || !@ipaddresses);
 
 	my $TcContainerAddRules = ["class add dev venet0 parent 1: classid 1:$classid cbq rate ${rate}mbit allot 1500 prio 5 bounded isolated",
 						   "qdisc add dev venet0 parent 1:$classid sfq perturb 10",
@@ -257,13 +257,19 @@ sub Tc_SetContainerRules {
 	}
 
 	foreach my $ip_address (@ipaddresses) {
-		my $TcContainerAddRulesIPs = ["filter add dev $nic protocol ip parent 1:0 prio 1 u32 match ip src $ip_address flowid 1:$classid",
-									  "filter add dev venet0 protocol ip parent 1:0 prio 1 u32 match ip dst $ip_address flowid 1:$classid"
+		my $ipversion = Net::IP::ip_get_version($ip_address);
+
+		my $ipprotocol = 'ip', my $iptype = 'ip', my $prio = 1;
+		$ipprotocol = 'ipv6', $iptype = 'ip6', $prio = 2 if ($ipversion eq 6);
+		next if ($ipversion ne 4 && $ipversion ne 6);
+
+		my $TcContainerAddRulesIPs = ["filter add dev ${nic} protocol ${ipprotocol} parent 1:0 prio ${prio} u32 match ${iptype} src ${ip_address} flowid 1:${classid}",
+									  "filter add dev venet0 protocol ${ipprotocol} parent 1:0 prio ${prio} u32 match ${iptype} dst ${ip_address} flowid 1:${classid}"
 									  ];
 								  
-	foreach my $tclimitCTIPscommand (@$TcContainerAddRulesIPs) {
-		PVE::Tools::run_command("/sbin/tc $tclimitCTIPscommand");
-	}
+		foreach my $tclimitCTIPscommand (@$TcContainerAddRulesIPs) {
+			PVE::Tools::run_command("/sbin/tc $tclimitCTIPscommand");
+		}
 	}
 }
 
@@ -329,6 +335,8 @@ sub update_vm_network {
 	$dbconf->{network}->{netout_last} = $d->{netout};
 	
 	save_vmdb_conf($vmid, $dbconf);
+
+	return $dbconf;
 }
 
 1;

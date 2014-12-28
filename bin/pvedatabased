@@ -76,7 +76,7 @@ sub update_qemu_status {
 		my $vmconf = PVE::QemuServer::load_config($vmid);
 		my $vmdbconf = PVE::Database::load_vmdb_conf($vmid);
 		
-		$database->update_vm_network($d, $vmid, $vmdbconf);
+		$vmdbconf = $database->update_vm_network($d, $vmid, $vmdbconf);
 		
 		my $rate = $vmdbconf->{network}->{rate};
 		$rate = $vmdbconf->{network}->{exceededrate} if($vmdbconf->{network}->{netlock} eq 1 && $vmdbconf->{network}->{exceededrate});
@@ -104,7 +104,7 @@ sub update_openvz_status {
 		my $veconf = PVE::OpenVZ::load_config($vmid);
 		my $vmdbconf = PVE::Database::load_vmdb_conf($vmid);
 		
-		$database->update_vm_network($d, $vmid, $vmdbconf);
+		$vmdbconf = $database->update_vm_network($d, $vmid, $vmdbconf);
 		
 		my $rate = $vmdbconf->{network}->{rate};
 		$rate = $vmdbconf->{network}->{exceededrate} if($vmdbconf->{network}->{netlock} eq 1 && $vmdbconf->{network}->{exceededrate});
@@ -113,6 +113,7 @@ sub update_openvz_status {
 			if (my $ip = $veconf->{ip_address}->{value}) {
 				$ip =~ s/,;/ /g;
 				my @ips = (split(/\s+/, $ip));
+
 				PVE::Database::Tc_SetContainerRules($rate, $hostdbconf->{network}->{limitinterface}, $classcounter, @ips);
 			}
 			$classcounter ++;
