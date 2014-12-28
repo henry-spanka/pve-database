@@ -32,6 +32,16 @@ my $network_properties = {
 		type => 'integer',
 		optional => 1,
     },
+    rate => {
+		description => "Network speed rate [mb/s]",
+		type => 'integer',
+		optional => 1,
+    },
+    exceededrate => {
+		description => "Network speed rate [mb/s] after the bandwidth was exceeded",
+		type => 'integer',
+		optional => 1,
+    },
 };
 
 my $add_network_properties = sub {

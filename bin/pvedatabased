@@ -71,17 +71,54 @@ sub update_qemu_status {
 
     foreach my $vmid (keys %$vmstatus) {
 		my $d = $vmstatus->{$vmid};
-		$database->update_vm_network($d, $vmid);
+		next if $d->{status} ne 'running';
+
+		my $vmconf = PVE::QemuServer::load_config($vmid);
+		my $vmdbconf = PVE::Database::load_vmdb_conf($vmid);
+		
+		$database->update_vm_network($d, $vmid, $vmdbconf);
+		
+		my $rate = $vmdbconf->{network}->{rate};
+		$rate = $vmdbconf->{network}->{exceededrate} if($vmdbconf->{network}->{netlock} eq 1 && $vmdbconf->{network}->{exceededrate});
+		
+		foreach my $key (keys %$vmconf) {
+			next if $key !~ m/^^net(\d+)$/i;
+				
+			my $tapinterface = "tap${vmid}i${1}";
+
+			PVE::Database::Tc_SetQemuRules($rate, $tapinterface);
+		}
 	}
 }
 
 sub update_openvz_status {
     my $vmstatus = PVE::OpenVZ::vmstatus();
+	
+	my $hostdbconf = PVE::Database::load_hostdb_conf();
+	my $classcounter = 1;
+	
+	PVE::Database::Tc_SetHostRules($hostdbconf->{network}->{limitinterface});
 
     foreach my $vmid (keys %$vmstatus) {
 		my $d = $vmstatus->{$vmid};
-		$database->update_vm_network($d, $vmid);
+		my $veconf = PVE::OpenVZ::load_config($vmid);
+		my $vmdbconf = PVE::Database::load_vmdb_conf($vmid);
+		
+		$database->update_vm_network($d, $vmid, $vmdbconf);
+		
+		my $rate = $vmdbconf->{network}->{rate};
+		$rate = $vmdbconf->{network}->{exceededrate} if($vmdbconf->{network}->{netlock} eq 1 && $vmdbconf->{network}->{exceededrate});
+		
+		if($rate gt 0) {
+			if (my $ip = $veconf->{ip_address}->{value}) {
+				$ip =~ s/,;/ /g;
+				my @ips = (split(/\s+/, $ip));
+				PVE::Database::Tc_SetContainerRules($rate, $hostdbconf->{network}->{limitinterface}, $classcounter, @ips);
+			}
+			$classcounter ++;
+		}
 	}
+
 }
 
 sub update_status {
@@ -109,7 +146,7 @@ my $next_update = 0;
 # do not update directly after startup, because install scripts
 # have a problem with that
 my $cycle = 0; 
-my $updatetime = 60;
+my $updatetime = 300;
 
 my $initial_memory_usage;
 

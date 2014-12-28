@@ -1,4 +1,4 @@
-package PVE::API2::Database::Network::VM;
+package PVE::API2::Database::Network::Host;
 
 use strict;
 use warnings;
@@ -11,35 +11,9 @@ use Data::Dumper; # fixme: remove
 use base qw(PVE::RESTHandler);
 
 my $network_properties = {
-    netin => {
-		description => "Current netin cycle",
-		type => 'integer',
-		optional => 1,
-    },
-    netout => {
-		description => "Current netout cycle",
-		type => 'integer',
-		optional => 1,
-    },
-    resetdate => {
-		description => "Next reset date for traffic stats.",
-		type => 'integer',
-		optional => 1,
-		minimum => 20141206,
-    },
-    bandwidth => {
-		description => "Monthly maximum bandwidth",
-		type => 'integer',
-		optional => 1,
-    },
-    rate => {
-		description => "Network speed rate [mb/s]",
-		type => 'integer',
-		optional => 1,
-    },
-    exceededrate => {
-		description => "Network speed rate [mb/s] after the bandwidth was exceeded",
-		type => 'integer',
+    limitinterface => {
+		description => "Interface though that OpenVZ traffic is routed (mostly eth[0,1...])",
+		type => 'string',
 		optional => 1,
     },
 };
@@ -59,14 +33,14 @@ __PACKAGE__->register_method ({
 	path => '',
 	method => 'GET',
 	description => "get network database section",
+	proxyto => 'node',
 	permissions => {
-		check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
+		check => ['perm', '/nodes/{node}', [ 'Sys.Audit' ]],
 	},
 	parameters => {
 		additionalProperties => 0,
 		properties => {
 			node => get_standard_option('pve-node'),
-			vmid => get_standard_option('pve-vmid'),	
 		},	
 	},
 	returns => { type => 'object',
@@ -80,7 +54,7 @@ __PACKAGE__->register_method ({
 	code => sub {
 		my ($param) = @_;
 		
-		my $dbconf = PVE::Database::load_vmdb_conf($param->{vmid});
+		my $dbconf = PVE::Database::load_hostdb_conf();
 		my ($conf, undef) = PVE::Database::copy_object_with_digest($dbconf->{network});
 		return $conf;
 	}
@@ -92,14 +66,14 @@ __PACKAGE__->register_method ({
     method => 'POST',
     description => "set and update network section database variables",
 	protected => 1,
+	proxyto => 'node',
 	permissions => {
-		check => ['perm', '/vms/{vmid}', [ 'VM.Audit' ]],
+		check => ['perm', '/nodes/{node}', [ 'Sys.Audit' ]],
 	},
     parameters => {
     	additionalProperties => 0,
 		properties => &$add_network_properties({
 			node => get_standard_option('pve-node'),
-			vmid => get_standard_option('pve-vmid'),
 			digest => get_standard_option('pve-config-digest'),
 		}),
    },
@@ -108,16 +82,17 @@ __PACKAGE__->register_method ({
     code => sub {
 		my ($param) = @_;
 
-		my $dbconf = PVE::Database::load_vmdb_conf($param->{vmid});
+		my $dbconf = PVE::Database::load_hostdb_conf();
 		my (undef, $digest) = PVE::Database::copy_object_with_digest($dbconf);
 		PVE::Tools::assert_if_modified($digest, $param->{digest});
 
 	    foreach my $k (keys %$network_properties) {
 			next if !defined($param->{$k});
+			die "Invalid interface $param->{$k}" if $k eq 'limitinterface' && PVE::Database::checkInterface($param->{$k}) eq 0;
 			$dbconf->{network}->{$k} = $param->{$k}; 
 	    }
 		
-		PVE::Database::save_vmdb_conf($param->{vmid}, $dbconf);
+		PVE::Database::save_hostdb_conf($dbconf);
 		return undef;
 
 	}

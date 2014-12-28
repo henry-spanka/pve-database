@@ -20,6 +20,8 @@ use PVE::Tools qw(run_command lock_file dir_glob_foreach);
 use Encode;
 use PVE::QemuServer;
 use PVE::OpenVZ;
+use PVE::API2::Network;
+use PVE::Network;
 use Time::Piece;
 use Time::Seconds;
 use PVE::SafeSyslog;
@@ -28,8 +30,12 @@ my $hostdb_conf_filename = "/etc/pve/local/host.db";
 my $pvedb_conf_dir = "/etc/pve/database";
 my $clusterdb_conf_filename = "$pvedb_conf_dir/cluster.db";
 
-my $empty_conf = {
-	network => { bandwidth => 0},
+my $empty_vm_conf = {
+	network => { bandwidth => 0, netlock => 0, rate => 0, exceededrate => 0, lastreset => 0, netin => 0, netout => 0, netin_last => 0, netout_last => 0, resetdate => 0},
+};
+
+my $empty_host_conf = {
+	network => { limitinterface => ''},
 };
 
 sub new {
@@ -37,6 +43,7 @@ sub new {
 	
 	my $rpcenv = PVE::RPCEnvironment->get();
 	my $self = bless { rpcenv => $rpcenv };
+
 	return $self;
 }
 
@@ -55,10 +62,28 @@ sub load_vmdb_conf {
     return $vmdb_conf;
 }
 
+sub load_hostdb_conf {
+
+	my $hostdb_conf = {};
+	
+	if (my $fh = IO::File->new($hostdb_conf_filename, O_RDONLY)) {
+		$hostdb_conf = parse_hostdb_config($hostdb_conf_filename, $fh);
+    }
+	
+	return $hostdb_conf;
+
+}
+
+sub parse_hostdb_config {
+    my ($filename, $fh) = @_;
+
+    return generic_db_config_parser($filename, $fh, $empty_host_conf);
+}
+
 sub parse_vmdb_config {
     my ($filename, $fh) = @_;
 
-    return generic_db_config_parser($filename, $fh, $empty_conf);
+    return generic_db_config_parser($filename, $fh, $empty_vm_conf);
 }
 
 sub generic_db_config_parser {
@@ -129,7 +154,7 @@ sub copy_object_with_digest {
 }
 
 sub parse_object_to_raw {
-	my ($object) = @_;
+	my ($object, $empty_conf) = @_;
 	my $raw = '';
 	
 	foreach my $k (sort keys %$object) {
@@ -156,20 +181,28 @@ sub save_vmdb_conf {
     my ($vmid, $conf) = @_;
 	
 	my $filename = "$pvedb_conf_dir/$vmid.db";
-	my $raw = parse_object_to_raw($conf);
+	my $raw = parse_object_to_raw($conf, $empty_vm_conf);
 	save_db_conf($filename, $raw);
 
 }
 
-sub remove_from_object {
-	my ($object, $section, @remove) = @_;
-	raise_param_exc({ delsection => "no such section '$section'" })  if !$empty_conf->{$section};
-	foreach my $opt (values @remove) {
-		delete($object->{$section}->{$opt});
-		delete($object->{$section}) if (!keys $object->{$section});
-	}
-	return $object;
+sub save_hostdb_conf {
+    my ($conf) = @_;
+
+	my $raw = parse_object_to_raw($conf, $empty_host_conf);
+	save_db_conf($hostdb_conf_filename, $raw);
+
 }
+
+#sub remove_from_object 
+#	my ($object, $section, @remove) = @_;
+#	raise_param_exc({ delsection => "no such section '$section'" })  if !$empty_conf->{$section};
+#	foreach my $opt (values @remove) {
+#		delete($object->{$section}->{$opt});
+#		delete($object->{$section}) if (!keys $object->{$section});
+#	}
+#	return $object;
+#}
 
 sub stop_ct {
 	my ($vmid) = @_;
@@ -184,13 +217,86 @@ sub stop_vm {
 					 0, 0, undef, 0, undef);
 }
 
+sub Tc_SetHostRules {
+	my ($nic) = @_;
+	
+	return if !$nic;
+
+	my $TcHostDeleteRules = ["qdisc del dev ${nic} root",
+						  'qdisc del dev venet0 root'
+						 ];
+	my $TcHostAddRules = ["qdisc add dev ${nic} root handle 1:  cbq avpkt 1000 bandwidth 1000mbit",
+					   'qdisc add dev venet0 root handle 1: cbq avpkt 1000 bandwidth 1000mbit'
+					  ];
+					  
+	foreach my $tclimitdelcommand (@$TcHostDeleteRules) {
+		PVE::Tools::run_command("/sbin/tc $tclimitdelcommand");
+	}
+	
+	foreach my $tclimitaddcommand (@$TcHostAddRules) {
+		PVE::Tools::run_command("/sbin/tc $tclimitaddcommand");
+	}
+	
+
+}
+
+sub Tc_SetContainerRules {
+	my ($rate, $nic, $classid, @ipaddresses) = @_;
+	
+	$rate = int($rate * 8); # Calculate mb/s to mbit/s
+
+	return !$rate || !$nic || !$classid || !@ipaddresses;
+
+	my $TcContainerAddRules = ["class add dev venet0 parent 1: classid 1:$classid cbq rate ${rate}mbit allot 1500 prio 5 bounded isolated",
+						   "qdisc add dev venet0 parent 1:$classid sfq perturb 10",
+						   "class add dev $nic parent 1: classid 1:$classid cbq rate ${rate}mbit allot 1500 prio 5 bounded isolated",
+						   "qdisc add dev $nic parent 1:$classid sfq perturb 10"
+						  ];
+	foreach my $tclimitCTcommand (@$TcContainerAddRules) {
+		PVE::Tools::run_command("/sbin/tc $tclimitCTcommand");
+	}
+
+	foreach my $ip_address (@ipaddresses) {
+		my $TcContainerAddRulesIPs = ["filter add dev $nic protocol ip parent 1:0 prio 1 u32 match ip src $ip_address flowid 1:$classid",
+									  "filter add dev venet0 protocol ip parent 1:0 prio 1 u32 match ip dst $ip_address flowid 1:$classid"
+									  ];
+								  
+	foreach my $tclimitCTIPscommand (@$TcContainerAddRulesIPs) {
+		PVE::Tools::run_command("/sbin/tc $tclimitCTIPscommand");
+	}
+	}
+}
+
+sub Tc_SetQemuRules {
+	my ($rate, $tap) = @_;
+
+	PVE::Network::tap_rate_limit($tap, $rate);
+}
+
+sub getInterfaces {
+	my $nodename = PVE::INotify::nodename();
+	chomp $nodename;
+	my $interfaces = PVE::API2::Network->index({node => $nodename, 'type' => 'eth'});
+	
+	return $interfaces;
+}
+
+sub checkInterface {
+	my ($iface) = @_;
+	my $interfaces = getInterfaces();
+	
+	foreach my $interface (@$interfaces) {
+		return 1 if $iface eq $interface->{iface};
+	}
+	return 0;
+}
+
 sub update_vm_network {
-	my ($self, $d, $vmid) = @_;
+	my ($self, $d, $vmid, $dbconf) = @_;
 
 	my $currenttime = localtime;
 	my $currentdate = $currenttime->strftime("%Y%m%d");
 	my $futuredate = $currenttime->add_months(1)->strftime("%Y%m%d");
-	my $dbconf = load_vmdb_conf($vmid);
 	
 	if($dbconf->{network}->{resetdate} le $currentdate) {
 		$dbconf->{network}->{lastreset} = $currentdate;
@@ -215,33 +321,7 @@ sub update_vm_network {
 		$dbconf->{network}->{netout} += ($d->{netout} - $dbconf->{network}->{netout_last});	
 	}
 
-	if( ( ($dbconf->{network}->{netin} + $dbconf->{network}->{netout}) > $dbconf->{network}->{bandwidth} ) && $dbconf->{network}->{bandwidth} && $dbconf->{network}->{netlock} lt 1) {
-	
-		if(defined($d->{type}) && $d->{type} eq 'openvz') {
-			if(PVE::OpenVZ::check_running($vmid)) {
-				my $realcmd = sub {
-					my $upid = shift;
-					
-					print "Stopping CT $vmid because it exceeded the bandwidth limit of $dbconf->{network}->{bandwidth} bytes\n";
-					syslog('info', "stoping CT $vmid: $upid because it exceeded the bandwidth limit\n");
-					
-					stop_ct($vmid);
-					return;
-				};
-				$self->{rpcenv}->fork_worker('bwstop', $vmid, 'root@pam', $realcmd);
-			}
-		} elsif(PVE::QemuServer::check_running($vmid)) {
-			my $realcmd = sub {
-				my $upid = shift;
-
-				print "Stopping VM $vmid because it exceeded the bandwidth limit of $dbconf->{network}->{bandwidth} bytes\n";
-				syslog('info', "stoping VM $vmid: $upid because it exceeded the bandwidth limit\n");
-				
-				stop_vm($vmid);
-				return;
-			};
-			$self->{rpcenv}->fork_worker('bwstop', $vmid, 'root@pam', $realcmd);
-		}
+	if( ( ($dbconf->{network}->{netin} + $dbconf->{network}->{netout}) > $dbconf->{network}->{bandwidth} ) && $dbconf->{network}->{bandwidth} && $dbconf->{network}->{netlock} ne 1) {
 		$dbconf->{network}->{netlock} = 1;
 	}
 	

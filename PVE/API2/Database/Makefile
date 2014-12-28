@@ -1,7 +1,8 @@
 include ../../../defines.mk
 
 PERLSOURCE = 			\
-	VM.pm
+	VM.pm			\
+	Host.pm
 
 SUBDIRS=Network
 

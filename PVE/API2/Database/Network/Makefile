@@ -2,7 +2,8 @@ include ../../../../defines.mk
 
 PERLSOURCE = 			\
 	CT.pm		\
-	VM.pm
+	VM.pm		\
+	Host.pm
 
 .PHONY: distclean
 distclean: clean
