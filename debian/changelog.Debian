@@ -1,3 +1,9 @@
+pve-database (1.0-4) unstable; urgency=low
+
+  * TC now IPv6 ready
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Sun, 28 Dec 2014 18:11:21 +0100
+
 pve-database (1.0-3) unstable; urgency=low
 
   * we can now limit OpenVZ containers speed and qemu containers on the fly
