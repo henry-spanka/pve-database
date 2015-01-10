@@ -222,22 +222,14 @@ sub Tc_SetHostRules {
 	
 	return if !$nic;
 
-	my $TcHostDeleteRules = ["qdisc del dev ${nic} root",
-						  'qdisc del dev venet0 root'
-						 ];
-	my $TcHostAddRules = ["qdisc add dev ${nic} root handle 1:  cbq avpkt 1000 bandwidth 1000mbit",
-					   'qdisc add dev venet0 root handle 1: cbq avpkt 1000 bandwidth 1000mbit'
-					  ];
-					  
-	foreach my $tclimitdelcommand (@$TcHostDeleteRules) {
-		PVE::Tools::run_command("/sbin/tc $tclimitdelcommand");
-	}
+	# Delete TC Rules
+	# we supress does not exist errors
+	system("/sbin/tc qdisc del dev ${nic} root >/dev/null 2>&1");
+	system("/sbin/tc qdisc del dev venet0 root >/dev/null 2>&1");
 	
-	foreach my $tclimitaddcommand (@$TcHostAddRules) {
-		PVE::Tools::run_command("/sbin/tc $tclimitaddcommand");
-	}
-	
-
+	# Add TC Rules
+	PVE::Tools::run_command("/sbin/tc qdisc add dev ${nic} root handle 1:  cbq avpkt 1000 bandwidth 1000mbit");
+	PVE::Tools::run_command("/sbin/tc qdisc add dev venet0 root handle 1: cbq avpkt 1000 bandwidth 1000mbit");
 }
 
 sub Tc_SetContainerRules {
@@ -247,14 +239,11 @@ sub Tc_SetContainerRules {
 
 	return if (!$rate || !$nic || !$classid || !@ipaddresses);
 
-	my $TcContainerAddRules = ["class add dev venet0 parent 1: classid 1:$classid cbq rate ${rate}mbit allot 1500 prio 5 bounded isolated",
-						   "qdisc add dev venet0 parent 1:$classid sfq perturb 10",
-						   "class add dev $nic parent 1: classid 1:$classid cbq rate ${rate}mbit allot 1500 prio 5 bounded isolated",
-						   "qdisc add dev $nic parent 1:$classid sfq perturb 10"
-						  ];
-	foreach my $tclimitCTcommand (@$TcContainerAddRules) {
-		PVE::Tools::run_command("/sbin/tc $tclimitCTcommand");
-	}
+	# Add Container TC rules
+	PVE::Tools::run_command("/sbin/tc class add dev venet0 parent 1: classid 1:$classid cbq rate ${rate}mbit allot 1500 prio 5 bounded isolated");
+	PVE::Tools::run_command("/sbin/tc qdisc add dev venet0 parent 1:$classid sfq perturb 10");
+	PVE::Tools::run_command("/sbin/tc class add dev $nic parent 1: classid 1:$classid cbq rate ${rate}mbit allot 1500 prio 5 bounded isolated");
+	PVE::Tools::run_command("/sbin/tc qdisc add dev $nic parent 1:$classid sfq perturb 10");
 
 	foreach my $ip_address (@ipaddresses) {
 		my $ipversion = Net::IP::ip_get_version($ip_address);
@@ -263,13 +252,9 @@ sub Tc_SetContainerRules {
 		$ipprotocol = 'ipv6', $iptype = 'ip6', $prio = 2 if ($ipversion eq 6);
 		next if ($ipversion ne 4 && $ipversion ne 6);
 
-		my $TcContainerAddRulesIPs = ["filter add dev ${nic} protocol ${ipprotocol} parent 1:0 prio ${prio} u32 match ${iptype} src ${ip_address} flowid 1:${classid}",
-									  "filter add dev venet0 protocol ${ipprotocol} parent 1:0 prio ${prio} u32 match ${iptype} dst ${ip_address} flowid 1:${classid}"
-									  ];
-								  
-		foreach my $tclimitCTIPscommand (@$TcContainerAddRulesIPs) {
-			PVE::Tools::run_command("/sbin/tc $tclimitCTIPscommand");
-		}
+		# Bind IP addresses to containers tc class
+		PVE::Tools::run_command("/sbin/tc filter add dev ${nic} protocol ${ipprotocol} parent 1:0 prio ${prio} u32 match ${iptype} src ${ip_address} flowid 1:${classid}");
+		PVE::Tools::run_command("/sbin/tc filter add dev venet0 protocol ${ipprotocol} parent 1:0 prio ${prio} u32 match ${iptype} dst ${ip_address} flowid 1:${classid}");
 	}
 }
 
