@@ -307,7 +307,7 @@ sub update_vm_network {
 	}
 	
 	if($dbconf->{network}->{netout_last} > $d->{netout}) {
-		$dbconf->{network}->{netout_last} = $dbconf->{network}->{netin} += $d->{netin};
+		$dbconf->{network}->{netout_last} = $dbconf->{network}->{netout} += $d->{netout};
 	} else {
 		$dbconf->{network}->{netout} += ($d->{netout} - $dbconf->{network}->{netout_last});	
 	}
