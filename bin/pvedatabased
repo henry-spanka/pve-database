@@ -71,12 +71,13 @@ sub update_qemu_status {
 
     foreach my $vmid (keys %$vmstatus) {
 		my $d = $vmstatus->{$vmid};
-		next if $d->{status} ne 'running';
 
 		my $vmconf = PVE::QemuServer::load_config($vmid);
 		my $vmdbconf = PVE::Database::load_vmdb_conf($vmid);
 		
 		$vmdbconf = $database->update_vm_network($d, $vmid, $vmdbconf);
+
+		next if $d->{status} ne 'running';
 		
 		my $rate = $vmdbconf->{network}->{rate};
 		$rate = $vmdbconf->{network}->{exceededrate} if($vmdbconf->{network}->{netlock} eq 1 && $vmdbconf->{network}->{exceededrate});
