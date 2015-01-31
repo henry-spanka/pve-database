@@ -194,29 +194,6 @@ sub save_hostdb_conf {
 
 }
 
-#sub remove_from_object 
-#	my ($object, $section, @remove) = @_;
-#	raise_param_exc({ delsection => "no such section '$section'" })  if !$empty_conf->{$section};
-#	foreach my $opt (values @remove) {
-#		delete($object->{$section}->{$opt});
-#		delete($object->{$section}) if (!keys $object->{$section});
-#	}
-#	return $object;
-#}
-
-sub stop_ct {
-	my ($vmid) = @_;
-		PVE::Tools::run_command(['vzctl', '--skiplock', 'stop', $vmid, '--fast']);
-}
-
-sub stop_vm {
-	my ($vmid) = @_;
-	
-	my $storecfg = PVE::Storage::config();
-		PVE::QemuServer::vm_stop($storecfg, $vmid, 1, 0,
-					 0, 0, undef, 0, undef);
-}
-
 sub Tc_SetHostRules {
 	my ($nic) = @_;
 	
