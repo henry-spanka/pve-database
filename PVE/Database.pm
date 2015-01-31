@@ -62,6 +62,16 @@ sub load_vmdb_conf {
     return $vmdb_conf;
 }
 
+sub remove_vmdb_conf {
+		my($vmid) = @_;
+
+		my $dir = $pvedb_conf_dir;
+		my $filename = "$dir/$vmid.db";
+		if(-f $filename) {
+			unlink $filename;
+		}
+}
+
 sub load_hostdb_conf {
 
 	my $hostdb_conf = {};
