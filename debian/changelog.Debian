@@ -1,3 +1,19 @@
+pve-database (1.0-5) unstable; urgency=low
+
+  * moved running check in order to update vm statistics
+
+  * implement vm_dbconf remove function
+
+  * cleanuped code
+
+  * fixed typo thwat would calculate wrong traffic if VM would be stopped and started again
+
+  * fixed installation bug insserv: service pvedaemon has to be enabled to start service pvedatabased
+
+  * removed command loops and suppress error messages 
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Sat, 31 Jan 2015 15:04:11 +0100
+
 pve-database (1.0-4) unstable; urgency=low
 
   * TC now IPv6 ready
