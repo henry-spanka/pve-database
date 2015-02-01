@@ -98,7 +98,7 @@ sub update_openvz_status {
 	my $hostdbconf = PVE::Database::load_hostdb_conf();
 	my $classcounter = 1;
 	
-	PVE::Database::Tc_SetHostRules($hostdbconf->{network}->{limitinterface});
+	PVE::Database::Tc_SetHostRules($hostdbconf->{network}->{limitinterface}, $hostdbconf->{network}->{maxspeed});
 
     foreach my $vmid (keys %$vmstatus) {
 		my $d = $vmstatus->{$vmid};

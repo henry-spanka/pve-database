@@ -35,7 +35,7 @@ my $empty_vm_conf = {
 };
 
 my $empty_host_conf = {
-	network => { limitinterface => ''},
+	network => { limitinterface => '', maxspeed => '125'},
 };
 
 sub new {
@@ -205,9 +205,11 @@ sub save_hostdb_conf {
 }
 
 sub Tc_SetHostRules {
-	my ($nic) = @_;
+	my ($nic, $speed) = @_;
 	
 	return if !$nic;
+
+	my $maxspeed = int($speed * 8); # Calculate mb/s to mbit/s
 
 	# Delete TC Rules
 	# we supress does not exist errors
@@ -215,8 +217,8 @@ sub Tc_SetHostRules {
 	system("/sbin/tc qdisc del dev venet0 root >/dev/null 2>&1");
 	
 	# Add TC Rules
-	PVE::Tools::run_command("/sbin/tc qdisc add dev ${nic} root handle 1:  cbq avpkt 1000 bandwidth 1000mbit");
-	PVE::Tools::run_command("/sbin/tc qdisc add dev venet0 root handle 1: cbq avpkt 1000 bandwidth 1000mbit");
+	PVE::Tools::run_command("/sbin/tc qdisc add dev ${nic} root handle 1:  cbq avpkt 1000 bandwidth ${maxspeed}mbit");
+	PVE::Tools::run_command("/sbin/tc qdisc add dev venet0 root handle 1: cbq avpkt 1000 bandwidth ${maxspeed}mbit");
 }
 
 sub Tc_SetContainerRules {

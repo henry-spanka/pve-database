@@ -16,6 +16,11 @@ my $network_properties = {
 		type => 'string',
 		optional => 1,
     },
+    maxspeed => {
+		description => "Maximum speed for all CTs together",
+		type => 'integer',
+		optional => 1,
+    },
 };
 
 my $add_network_properties = sub {
