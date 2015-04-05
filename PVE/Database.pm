@@ -31,7 +31,7 @@ my $pvedb_conf_dir = "/etc/pve/database";
 my $clusterdb_conf_filename = "$pvedb_conf_dir/cluster.db";
 
 my $empty_vm_conf = {
-	network => { bandwidth => 0, netlock => 0, rate => 0, exceededrate => 0, lastreset => 0, netin => 0, netout => 0, netin_last => 0, netout_last => 0, pktsin => 0, pktsout => 0, pktsin_last => 0, pktsout_last => 0, pktsin_sec => 0, pktsout_sec => 0, resetdate => 0},
+	network => { bandwidth => 0, netlock => 0, rate => 0, exceededrate => 0, lastreset => 0, netin => 0, netout => 0, netin_last => 0, netout_last => 0, netin_sec => 0, netout_sec => 0, pktsin => 0, pktsout => 0, pktsin_last => 0, pktsout_last => 0, pktsin_sec => 0, pktsout_sec => 0, resetdate => 0},
 };
 
 my $empty_host_conf = {
@@ -314,6 +314,9 @@ sub update_vm_network {
 	} else {
 		$dbconf->{network}->{pktsout} += ($d->{pktsout} - $dbconf->{network}->{pktsout_last});
 	}
+
+	$dbconf->{network}->{netin_sec} = int(($d->{netin} - $dbconf->{network}->{netin_last}) / (5*60)); # pvedatabased updates every 5 minutes
+	$dbconf->{network}->{netout_sec} = int(($d->{netout} - $dbconf->{network}->{netout_last}) / (5*60));	
 
 	$dbconf->{network}->{pktsin_sec} = int(($d->{pktsin} - $dbconf->{network}->{pktsin_last}) / (5*60)); # pvedatabased updates every 5 minutes
 	$dbconf->{network}->{pktsout_sec} = int(($d->{pktsout} - $dbconf->{network}->{pktsout_last}) / (5*60));
