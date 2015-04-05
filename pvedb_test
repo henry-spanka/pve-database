@@ -67,6 +67,67 @@ __PACKAGE__->register_method ({
 		return $conf;
     }});
 	
+__PACKAGE__->register_method ({
+    name => 'get_conntrack_sessions',
+    path => 'get_conntrack_sessions',
+    method => 'GET',
+    description => "Get conntrack sessions",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+		node => get_standard_option('pve-node'),
+		vmid => get_standard_option('pve-vmid'),
+		
+	},
+	#section => {
+	#	type => 'string',
+	#	description => "A section you want to query.",
+	#	optional => 1,
+	#},		
+    },
+    returns => { type => 'integer',
+			   },
+
+    code => sub {
+		my ($param) = @_;
+
+		my $vmid = $param->{vmid};
+
+		my $conntrack_sessions = PVE::Database::getConntrackSessionsOfCT($vmid);
+		print "Current conntrack sessions => ${conntrack_sessions}\n";
+		return $conntrack_sessions;
+    }});
+
+__PACKAGE__->register_method ({
+    name => 'get_packets',
+    path => 'get_packets',
+    method => 'GET',
+    description => "Get packets of CT",
+    parameters => {
+    	additionalProperties => 0,
+	properties => {
+		node => get_standard_option('pve-node'),
+		vmid => get_standard_option('pve-vmid'),
+		
+	},
+	#section => {
+	#	type => 'string',
+	#	description => "A section you want to query.",
+	#	optional => 1,
+	#},		
+    },
+    returns => { type => 'object',
+			   },
+
+    code => sub {
+		my ($param) = @_;
+
+		my $vmid = $param->{vmid};
+
+		my (undef, undef, $recvpackets, $trmtpackets) = PVE::OpenVZ::read_container_network_usage($vmid);
+		print "Packets IN => ${recvpackets}\nPackets OUT ==> ${trmtpackets}\n";
+		return { recvpackets => $recvpackets, trmtpackets => $trmtpackets };
+    }});
 #__PACKAGE__->register_method ({
 #    name => 'set',
 #    path => 'set',
@@ -112,6 +173,8 @@ my $nodename = PVE::INotify::nodename();
 
 my $cmddef = {
     get => [ __PACKAGE__, 'get', []],
+    get_conntrack_sessions => [ __PACKAGE__, 'get_conntrack_sessions', []],
+    get_packets => [ __PACKAGE__, 'get_packets', []],
 #	set => [ __PACKAGE__, 'set', []],
 };
 

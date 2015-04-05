@@ -31,7 +31,7 @@ my $pvedb_conf_dir = "/etc/pve/database";
 my $clusterdb_conf_filename = "$pvedb_conf_dir/cluster.db";
 
 my $empty_vm_conf = {
-	network => { bandwidth => 0, netlock => 0, rate => 0, exceededrate => 0, lastreset => 0, netin => 0, netout => 0, netin_last => 0, netout_last => 0, resetdate => 0},
+	network => { bandwidth => 0, netlock => 0, rate => 0, exceededrate => 0, lastreset => 0, netin => 0, netout => 0, netin_last => 0, netout_last => 0, pktsin => 0, pktsout => 0, pktsin_last => 0, pktsout_last => 0, pktsin_sec => 0, pktsout_sec => 0, resetdate => 0},
 };
 
 my $empty_host_conf = {
@@ -283,6 +283,8 @@ sub update_vm_network {
 		$dbconf->{network}->{resetdate} = $futuredate;
 		$dbconf->{network}->{netin} = 0;
 		$dbconf->{network}->{netout} = 0;
+		$dbconf->{network}->{pktsin} = 0;
+		$dbconf->{network}->{pktsout} = 0;
 	}
 	
 	if($dbconf->{network}->{bandwidth} >= ($dbconf->{network}->{netin} + $dbconf->{network}->{netout}) ) {
@@ -301,6 +303,24 @@ sub update_vm_network {
 		$dbconf->{network}->{netout} += ($d->{netout} - $dbconf->{network}->{netout_last});	
 	}
 
+	if($dbconf->{network}->{pktsin_last} > $d->{pktsin}) {
+		$dbconf->{network}->{pktsin_last} = $dbconf->{network}->{pktsin} += $d->{pktsin};
+	} else {
+		$dbconf->{network}->{pktsin} += ($d->{pktsin} - $dbconf->{network}->{pktsin_last});
+	}
+
+	if($dbconf->{network}->{pktsout_last} > $d->{pktsout}) {
+		$dbconf->{network}->{pktsout_last} = $dbconf->{network}->{pktsout} += $d->{pktsout};
+	} else {
+		$dbconf->{network}->{pktsout} += ($d->{pktsout} - $dbconf->{network}->{pktsout_last});
+	}
+
+	$dbconf->{network}->{pktsin_sec} = int(($d->{pktsin} - $dbconf->{network}->{pktsin_last}) / (5*60)); # pvedatabased updates every 5 minutes
+	$dbconf->{network}->{pktsout_sec} = int(($d->{pktsout} - $dbconf->{network}->{pktsout_last}) / (5*60));
+
+	$dbconf->{network}->{pktsin_last} = $d->{pktsin};
+	$dbconf->{network}->{pktsout_last} = $d->{pktsout};
+
 	if( ( ($dbconf->{network}->{netin} + $dbconf->{network}->{netout}) > $dbconf->{network}->{bandwidth} ) && $dbconf->{network}->{bandwidth} && $dbconf->{network}->{netlock} ne 1) {
 		$dbconf->{network}->{netlock} = 1;
 	}
@@ -311,6 +331,28 @@ sub update_vm_network {
 	save_vmdb_conf($vmid, $dbconf);
 
 	return $dbconf;
+}
+
+sub getConntrackSessionsOfCT {
+	my ($vmid) = @_;
+
+	# Do we implement this? We can also move this to PVE::OpenVZ::getConntrackSessionsOf(CT)
+
+	my $conntrack_sessions = 0;
+
+	my $conntrack_sessionparser = sub {
+		my $line = shift;
+		$conntrack_sessions++;
+	};
+
+	my $cmd = ['/usr/sbin/vzctl', 'exec', $vmid, '/bin/cat', '/proc/1/net/nf_conntrack'];
+	eval {
+		run_command($cmd, outfunc => $conntrack_sessionparser);
+	};
+	my $err = $@;
+	syslog('err', $err) if($err);
+
+	return $conntrack_sessions;
 }
 
 1;
