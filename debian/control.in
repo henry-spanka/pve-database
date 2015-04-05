@@ -3,7 +3,7 @@ Version: @VERSION@-@PACKAGERELEASE@
 Section: admin
 Priority: optional
 Architecture: amd64
-Depends: libpve-common-perl, pve-cluster, libpve-access-control
+Depends: libpve-common-perl, pve-cluster, libpve-access-control, pve-manager
 Maintainer: Henry Spanka - myVirtualserver <henry@myvirtualserver.de>
 Description: Proxmox VE Database
  This package contains the Proxmox VE Database.
