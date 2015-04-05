@@ -1,3 +1,17 @@
+pve-database (1.0-6) unstable; urgency=low
+
+  * fix cman issue on initial installation of proxmox
+
+  * implement bytes/s average calculated over 5 minutes
+
+  * implement packets accounting
+
+  * change type from integer to number in order to allow limits/speeds less than 1mb/s
+
+  * limit maximum speed of all CTs together on a hostnode
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Sun, 05 Apr 2015 14:47:36 +0200
+
 pve-database (1.0-5) unstable; urgency=low
 
   * moved running check in order to update vm statistics
