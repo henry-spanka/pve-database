@@ -315,11 +315,11 @@ sub update_vm_network {
 		$dbconf->{network}->{pktsout} += ($d->{pktsout} - $dbconf->{network}->{pktsout_last});
 	}
 
-	$dbconf->{network}->{netin_sec} = int(($d->{netin} - $dbconf->{network}->{netin_last}) / (5*60)); # pvedatabased updates every 5 minutes
-	$dbconf->{network}->{netout_sec} = int(($d->{netout} - $dbconf->{network}->{netout_last}) / (5*60));	
+	$dbconf->{network}->{netin_sec} = int(($dbconf->{network}->{netin} - $dbconf->{network}->{netin_last}) / (5*60)); # pvedatabased updates every 5 minutes
+	$dbconf->{network}->{netout_sec} = int(($dbconf->{network}->{netout} - $dbconf->{network}->{netout_last}) / (5*60));	
 
-	$dbconf->{network}->{pktsin_sec} = int(($d->{pktsin} - $dbconf->{network}->{pktsin_last}) / (5*60)); # pvedatabased updates every 5 minutes
-	$dbconf->{network}->{pktsout_sec} = int(($d->{pktsout} - $dbconf->{network}->{pktsout_last}) / (5*60));
+	$dbconf->{network}->{pktsin_sec} = int(($dbconf->{network}->{pktsin} - $dbconf->{network}->{pktsin_last}) / (5*60)); # pvedatabased updates every 5 minutes
+	$dbconf->{network}->{pktsout_sec} = int(($dbconf->{network}->{pktsout} - $dbconf->{network}->{pktsout_last}) / (5*60));
 
 	$dbconf->{network}->{pktsin_last} = $d->{pktsin};
 	$dbconf->{network}->{pktsout_last} = $d->{pktsout};
