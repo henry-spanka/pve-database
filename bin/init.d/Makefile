@@ -3,7 +3,8 @@ include ../../defines.mk
 all:
 
 SCRIPTS = 		\
-	pvedatabased
+	pvedatabased	\
+	pvemonitord
 
 .PHONY: install 
 install: ${SCRIPTS}

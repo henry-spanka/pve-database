@@ -3,10 +3,12 @@ include ../defines.mk
 SUBDIRS = init.d
 
 SCRIPTS =			\
-	pvedatabased
+	pvedatabased		\
+	pvemonitord
 
 MANS = 				\
-	pvedatabased.1
+	pvedatabased.1		\
+	pvemonitord.1
 
 all: ${MANS}
 

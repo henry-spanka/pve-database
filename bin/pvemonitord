@@ -28,7 +28,7 @@ my $cmdline = [$0, @ARGV];
 
 my %daemon_options = (restart_on_error => 5, stop_wait_time => 5);
 
-my $daemon = __PACKAGE__->new('pvedatabased', $cmdline, %daemon_options);
+my $daemon = __PACKAGE__->new('pvemonitord', $cmdline, %daemon_options);
 
 my $rpcenv = PVE::RPCEnvironment->init('cli');
 
@@ -72,21 +72,9 @@ sub update_qemu_status {
     foreach my $vmid (keys %$vmstatus) {
 		my $d = $vmstatus->{$vmid};
 
-		my $vmconf = PVE::QemuServer::load_config($vmid);
 		my $vmdbconf = PVE::Database::load_vmdb_conf($vmid);
-
-		next if $d->{status} ne 'running';
 		
-		my $rate = $vmdbconf->{network}->{rate};
-		$rate = $vmdbconf->{network}->{exceededrate} if($vmdbconf->{network}->{netlock} eq 1 && $vmdbconf->{network}->{exceededrate});
-		
-		foreach my $key (keys %$vmconf) {
-			next if $key !~ m/^^net(\d+)$/i;
-				
-			my $tapinterface = "tap${vmid}i${1}";
-
-			PVE::Database::Tc_SetQemuRules($rate, $tapinterface);
-		}
+		$database->update_vm_network($d, $vmid, $vmdbconf);
 	}
 }
 
@@ -100,21 +88,9 @@ sub update_openvz_status {
 
     foreach my $vmid (keys %$vmstatus) {
 		my $d = $vmstatus->{$vmid};
-		my $veconf = PVE::OpenVZ::load_config($vmid);
 		my $vmdbconf = PVE::Database::load_vmdb_conf($vmid);
 		
-		my $rate = $vmdbconf->{network}->{rate};
-		$rate = $vmdbconf->{network}->{exceededrate} if($vmdbconf->{network}->{netlock} eq 1 && $vmdbconf->{network}->{exceededrate});
-		
-		if($rate gt 0) {
-			if (my $ip = $veconf->{ip_address}->{value}) {
-				$ip =~ s/,;/ /g;
-				my @ips = (split(/\s+/, $ip));
-
-				PVE::Database::Tc_SetContainerRules($rate, $hostdbconf->{network}->{limitinterface}, $classcounter, @ips);
-			}
-			$classcounter ++;
-		}
+		$database->update_vm_network($d, $vmid, $vmdbconf);
 	}
 
 }
@@ -144,7 +120,7 @@ my $next_update = 0;
 # do not update directly after startup, because install scripts
 # have a problem with that
 my $cycle = 0; 
-my $updatetime = 300;
+my $updatetime = 10;
 
 my $initial_memory_usage;
 
@@ -221,11 +197,11 @@ __END__
 
 =head1 NAME
                                           
-pvedatabased - PVE Database Daemon
+pvemonitord - PVE Database Daemon
 
 =head1 SYNOPSIS
 
-pvedatabased
+pvemonitord
 
 =head1 DESCRIPTION
 
