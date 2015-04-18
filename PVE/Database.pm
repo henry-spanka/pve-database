@@ -121,7 +121,8 @@ sub generic_db_config_parser {
 		}
 		
 		if ($empty_conf->{$section} && $line =~ m/^([a-z][a-z_]*\d*):\s*(\S+)\s*$/) {
-			$res->{$section}{$1} = $2;
+				next if !defined($empty_conf->{$section}->{$1});
+				$res->{$section}->{$1} = $2;
 		} else {
 			warn "$prefix: skip line - no or invalid section/var\n";
 			next;
@@ -174,6 +175,7 @@ sub parse_object_to_raw {
 		next if !$empty_conf->{$k};
 		$raw .= "[$k]\n";
 		foreach my $k1 (sort keys %$object1) {
+			next if !defined($empty_conf->{$k}->{$k1});
 			$raw .= "$k1: $object->{$k}->{$k1}\n";
 		}
 	}
