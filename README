@@ -1,1 +1,3 @@
-PVE database for logging network traffic for now
+PVE database for logging and limiting network traffic
+
+This package is considered as stable.
