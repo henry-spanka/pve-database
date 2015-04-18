@@ -94,7 +94,6 @@ sub update_openvz_status {
     my $vmstatus = PVE::OpenVZ::vmstatus();
 	
 	my $hostdbconf = PVE::Database::load_hostdb_conf();
-	my $classcounter = 1;
 	
 	PVE::Database::Tc_SetHostRules($hostdbconf->{network}->{limitinterface}, $hostdbconf->{network}->{maxspeed});
 
@@ -111,9 +110,8 @@ sub update_openvz_status {
 				$ip =~ s/,;/ /g;
 				my @ips = (split(/\s+/, $ip));
 
-				PVE::Database::Tc_SetContainerRules($rate, $hostdbconf->{network}->{limitinterface}, $classcounter, @ips);
+				PVE::Database::Tc_SetContainerRules($rate, $hostdbconf->{network}->{limitinterface}, $vmid, @ips);
 			}
-			$classcounter ++;
 		}
 	}
 
