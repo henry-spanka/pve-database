@@ -1,3 +1,9 @@
+pve-database (1.0-10) unstable; urgency=low
+
+  * closes #6 - pvemonitord is overwriting tc rules every 10 seconds
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Sun, 12 Jul 2015 16:19:58 +0200
+
 pve-database (1.0-9) unstable; urgency=low
 
   * closes #5 - revert commit "use vmid instead of classid counter"
