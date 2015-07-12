@@ -80,10 +80,6 @@ sub update_qemu_status {
 
 sub update_openvz_status {
     my $vmstatus = PVE::OpenVZ::vmstatus();
-	
-	my $hostdbconf = PVE::Database::load_hostdb_conf();
-	
-	PVE::Database::Tc_SetHostRules($hostdbconf->{network}->{limitinterface}, $hostdbconf->{network}->{maxspeed});
 
     foreach my $vmid (keys %$vmstatus) {
 		my $d = $vmstatus->{$vmid};
