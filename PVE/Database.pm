@@ -38,15 +38,6 @@ my $empty_host_conf = {
 	network => { limitinterface => '', maxspeed => '125'},
 };
 
-sub new {
-	my ($class) = @_;
-	
-	my $rpcenv = PVE::RPCEnvironment->get();
-	my $self = bless { rpcenv => $rpcenv };
-
-	return $self;
-}
-
 sub load_vmdb_conf {
     my ($vmid) = @_;
 
@@ -274,7 +265,7 @@ sub checkInterface {
 }
 
 sub update_vm_network {
-	my ($self, $d, $vmid, $dbconf) = @_;
+	my ($d, $vmid, $dbconf) = @_;
 
 	my $currenttime = localtime;
 	my $currentdate = $currenttime->strftime("%Y%m%d");
@@ -293,27 +284,19 @@ sub update_vm_network {
 		$dbconf->{network}->{netlock} = 0;
 	}
 	
-	if($dbconf->{network}->{netin_last} > $d->{netin}) {
-		$dbconf->{network}->{netin_last} = $dbconf->{network}->{netin} += $d->{netin};
-	} else {
+	if($dbconf->{network}->{netin_last} <= $d->{netin}) {
 		$dbconf->{network}->{netin} += ($d->{netin} - $dbconf->{network}->{netin_last});
 	}
 	
-	if($dbconf->{network}->{netout_last} > $d->{netout}) {
-		$dbconf->{network}->{netout_last} = $dbconf->{network}->{netout} += $d->{netout};
-	} else {
+	if($dbconf->{network}->{netout_last} <= $d->{netout}) {
 		$dbconf->{network}->{netout} += ($d->{netout} - $dbconf->{network}->{netout_last});	
 	}
 
-	if($dbconf->{network}->{pktsin_last} > $d->{pktsin}) {
-		$dbconf->{network}->{pktsin_last} = $dbconf->{network}->{pktsin} += $d->{pktsin};
-	} else {
+	if($dbconf->{network}->{pktsin_last} <= $d->{pktsin}) {
 		$dbconf->{network}->{pktsin} += ($d->{pktsin} - $dbconf->{network}->{pktsin_last});
 	}
 
-	if($dbconf->{network}->{pktsout_last} > $d->{pktsout}) {
-		$dbconf->{network}->{pktsout_last} = $dbconf->{network}->{pktsout} += $d->{pktsout};
-	} else {
+	if($dbconf->{network}->{pktsout_last} <= $d->{pktsout}) {
 		$dbconf->{network}->{pktsout} += ($d->{pktsout} - $dbconf->{network}->{pktsout_last});
 	}
 

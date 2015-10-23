@@ -64,8 +64,6 @@ sub hup {
     $restart_request = 1;
 }
 
-my $database = PVE::Database::new();
-
 sub update_qemu_status {
     my $vmstatus = PVE::QemuServer::vmstatus(undef, 1);
 
@@ -74,7 +72,7 @@ sub update_qemu_status {
 
 		my $vmdbconf = PVE::Database::load_vmdb_conf($vmid);
 		
-		$database->update_vm_network($d, $vmid, $vmdbconf);
+		PVE::Database::update_vm_network($d, $vmid, $vmdbconf);
 	}
 }
 
@@ -85,7 +83,7 @@ sub update_openvz_status {
 		my $d = $vmstatus->{$vmid};
 		my $vmdbconf = PVE::Database::load_vmdb_conf($vmid);
 		
-		$database->update_vm_network($d, $vmid, $vmdbconf);
+		PVE::Database::update_vm_network($d, $vmid, $vmdbconf);
 	}
 
 }

@@ -64,8 +64,6 @@ sub hup {
     $restart_request = 1;
 }
 
-my $database = PVE::Database::new();
-
 sub update_qemu_status {
     my $vmstatus = PVE::QemuServer::vmstatus(undef, 1);
 
