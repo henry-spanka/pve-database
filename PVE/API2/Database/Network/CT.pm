@@ -21,6 +21,16 @@ my $network_properties = {
 		type => 'integer',
 		optional => 1,
     },
+    pktsin => {
+        description => "total accounted incoming packets",
+        type => 'integer',
+        optional => 1,
+    },
+    pktsout => {
+        description => "total accounted outgoing packets",
+        type => 'integer',
+        optional => 1,
+    },
     resetdate => {
 		description => "Next reset date for traffic stats.",
 		type => 'integer',
