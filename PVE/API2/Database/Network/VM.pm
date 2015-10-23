@@ -12,12 +12,12 @@ use base qw(PVE::RESTHandler);
 
 my $network_properties = {
     netin => {
-		description => "Current netin cycle",
+		description => "total accounted incoming traffic",
 		type => 'integer',
 		optional => 1,
     },
     netout => {
-		description => "Current netout cycle",
+		description => "total accounted outgoing traffic",
 		type => 'integer',
 		optional => 1,
     },

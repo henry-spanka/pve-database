@@ -12,7 +12,7 @@ use base qw(PVE::RESTHandler);
 
 my $network_properties = {
     limitinterface => {
-		description => "Interface though that OpenVZ traffic is routed (mostly eth[0,1...])",
+		description => "Interface through that OpenVZ traffic is routed (mostly eth[0,1...])",
 		type => 'string',
 		optional => 1,
     },
