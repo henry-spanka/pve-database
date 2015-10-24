@@ -1,3 +1,13 @@
+pve-database (1.0-11) unstable; urgency=low
+
+  * Fix proxmox/pve-manager#14 - Incorrect traffic accounting
+
+  * Allow total incoming and outgoing packets to be reset
+
+  * Fix description of API parameters
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Sat, 24 Oct 2015 17:26:55 +0200
+
 pve-database (1.0-10) unstable; urgency=low
 
   * closes #6 - pvemonitord is overwriting tc rules every 10 seconds
