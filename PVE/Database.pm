@@ -26,6 +26,14 @@ use Time::Piece;
 use Time::Seconds;
 use PVE::SafeSyslog;
 
+use PVE::Status::Plugin;
+use PVE::Status::Graphite;
+use PVE::Status::InfluxDB;
+
+PVE::Status::Graphite->register();
+PVE::Status::InfluxDB->register();
+PVE::Status::Plugin->init();
+
 my $hostdb_conf_filename = "/etc/pve/local/host.db";
 my $pvedb_conf_dir = "/etc/pve/database";
 my $clusterdb_conf_filename = "$pvedb_conf_dir/cluster.db";
@@ -265,11 +273,13 @@ sub checkInterface {
 }
 
 sub update_vm_network {
-	my ($d, $vmid, $dbconf) = @_;
+	my ($d, $vmid, $dbconf, $status_cfg, $type) = @_;
 
 	my $currenttime = localtime;
 	my $currentdate = $currenttime->strftime("%Y%m%d");
 	my $futuredate = $currenttime->add_months(1)->strftime("%Y%m%d");
+
+	my $statushash = {};
 	
 	if($dbconf->{network}->{resetdate} le $currentdate) {
 		$dbconf->{network}->{lastreset} = $currentdate;
@@ -300,11 +310,11 @@ sub update_vm_network {
 		$dbconf->{network}->{pktsout} += ($d->{pktsout} - $dbconf->{network}->{pktsout_last});
 	}
 
-	$dbconf->{network}->{netin_sec} = int(($d->{netin} - $dbconf->{network}->{netin_last}) / 10); # pvemonitord updates every 10 seconds
-	$dbconf->{network}->{netout_sec} = int(($d->{netout} - $dbconf->{network}->{netout_last}) / 10);
+	$statushash->{netinsec} = $dbconf->{network}->{netin_sec} = int(($d->{netin} - $dbconf->{network}->{netin_last}) / 10); # pvemonitord updates every 10 seconds
+	$statushash->{netoutsec} = $dbconf->{network}->{netout_sec} = int(($d->{netout} - $dbconf->{network}->{netout_last}) / 10);
 
-	$dbconf->{network}->{pktsin_sec} = int(($d->{pktsin} - $dbconf->{network}->{pktsin_last}) / 10); # pvemonitord updates every 10 seconds
-	$dbconf->{network}->{pktsout_sec} = int(($d->{pktsout} - $dbconf->{network}->{pktsout_last}) / 10);
+	$statushash->{pktsinsec} = $dbconf->{network}->{pktsin_sec} = int(($d->{pktsin} - $dbconf->{network}->{pktsin_last}) / 10); # pvemonitord updates every 10 seconds
+	$statushash->{pktsoutsec} = $dbconf->{network}->{pktsout_sec} = int(($d->{pktsout} - $dbconf->{network}->{pktsout_last}) / 10);
 
 	$dbconf->{network}->{pktsin_last} = $d->{pktsin};
 	$dbconf->{network}->{pktsout_last} = $d->{pktsout};
@@ -317,6 +327,20 @@ sub update_vm_network {
 	$dbconf->{network}->{netout_last} = $d->{netout};
 	
 	save_vmdb_conf($vmid, $dbconf);
+
+	my $ctime = time();
+
+    foreach my $id (keys %{$status_cfg->{ids}}) {
+        my $plugin_config = $status_cfg->{ids}->{$id};
+        next if $plugin_config->{disable};
+        my $plugin = PVE::Status::Plugin->lookup($plugin_config->{type});
+        if ($type eq 'openvz') {
+        	$plugin->update_openvz_status($plugin_config, $vmid, $statushash, $ctime);
+    	} elsif ($type eq 'qemu') {
+        	$plugin->update_qemu_status($plugin_config, $vmid, $statushash, $ctime);	
+    	}
+        
+    }
 
 	return $dbconf;
 }

@@ -65,6 +65,8 @@ sub hup {
 }
 
 sub update_qemu_status {
+    my ($status_cfg) = @_;
+
     my $vmstatus = PVE::QemuServer::vmstatus(undef, 1);
 
     foreach my $vmid (keys %$vmstatus) {
@@ -72,18 +74,20 @@ sub update_qemu_status {
 
 		my $vmdbconf = PVE::Database::load_vmdb_conf($vmid);
 		
-		PVE::Database::update_vm_network($d, $vmid, $vmdbconf);
+		PVE::Database::update_vm_network($d, $vmid, $vmdbconf, $status_cfg, 'qemu');
 	}
 }
 
 sub update_openvz_status {
+    my ($status_cfg) = @_;
+
     my $vmstatus = PVE::OpenVZ::vmstatus();
 
     foreach my $vmid (keys %$vmstatus) {
 		my $d = $vmstatus->{$vmid};
 		my $vmdbconf = PVE::Database::load_vmdb_conf($vmid);
 		
-		PVE::Database::update_vm_network($d, $vmid, $vmdbconf);
+		PVE::Database::update_vm_network($d, $vmid, $vmdbconf, $status_cfg, 'openvz');
 	}
 
 }
@@ -95,14 +99,16 @@ sub update_status {
     # list in case of an unexpected crash.
     my $err;
 
+    my $status_cfg = PVE::Cluster::cfs_read_file('status.cfg');
+
     eval {
-		update_qemu_status();
+		update_qemu_status($status_cfg);
     };
     $err = $@;
     syslog('err', "qemu status update error: $err") if $err;
 
     eval {
-		update_openvz_status();
+		update_openvz_status($status_cfg);
     };
     $err = $@;
     syslog('err', "openvz status update error: $err") if $err;
