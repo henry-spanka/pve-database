@@ -1,3 +1,9 @@
+pve-database (1.0-12) unstable; urgency=low
+
+  * proxmox/pve-manager#13 - Add network metrics for Graphite/InfluxDB integration
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Fri, 13 Nov 2015 15:03:16 +0100
+
 pve-database (1.0-11) unstable; urgency=low
 
   * Fix proxmox/pve-manager#14 - Incorrect traffic accounting
