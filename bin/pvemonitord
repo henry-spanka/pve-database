@@ -87,7 +87,10 @@ sub update_openvz_status {
 		my $d = $vmstatus->{$vmid};
 		my $vmdbconf = PVE::Database::load_vmdb_conf($vmid);
 		
-		PVE::Database::update_vm_network($d, $vmid, $vmdbconf, $status_cfg, 'openvz');
+		$vmdbconf = PVE::Database::update_vm_network($d, $vmid, $vmdbconf, $status_cfg, 'openvz');
+        $vmdbconf = PVE::Database::update_vm_disk($d, $vmid, $vmdbconf, $status_cfg, 'openvz');
+
+        PVE::Database::save_vmdb_conf($vmid, $vmdbconf);
 	}
 
 }

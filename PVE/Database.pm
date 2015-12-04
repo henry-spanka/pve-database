@@ -39,11 +39,41 @@ my $pvedb_conf_dir = "/etc/pve/database";
 my $clusterdb_conf_filename = "$pvedb_conf_dir/cluster.db";
 
 my $empty_vm_conf = {
-	network => { bandwidth => 0, netlock => 0, rate => 0, exceededrate => 0, lastreset => 0, netin => 0, netout => 0, netin_last => 0, netout_last => 0, netin_sec => 0, netout_sec => 0, pktsin => 0, pktsout => 0, pktsin_last => 0, pktsout_last => 0, pktsin_sec => 0, pktsout_sec => 0, resetdate => 0},
+	network => {
+        bandwidth => 0,
+        netlock => 0,
+        rate => 0,
+        exceededrate => 0,
+        lastreset => 0,
+        netin => 0,
+        netout => 0,
+        netin_last => 0,
+        netout_last => 0,
+        netin_sec => 0,
+        netout_sec => 0,
+        pktsin => 0,
+        pktsout => 0,
+        pktsin_last => 0,
+        pktsout_last => 0,
+        pktsin_sec => 0,
+        pktsout_sec => 0,
+        resetdate => 0
+    },
+    disk => {
+        diskread => 0,
+        diskwrite => 0,
+        diskread_last => 0,
+        diskwrite_last => 0,
+        diskread_sec => 0,
+        diskwrite_sec => 0
+    }
 };
 
 my $empty_host_conf = {
-	network => { limitinterface => '', maxspeed => '125'},
+	network => {
+        limitinterface => '',
+        maxspeed => '125'
+    }
 };
 
 sub load_vmdb_conf {
@@ -325,8 +355,6 @@ sub update_vm_network {
 	
 	$dbconf->{network}->{netin_last} = $d->{netin};
 	$dbconf->{network}->{netout_last} = $d->{netout};
-	
-	save_vmdb_conf($vmid, $dbconf);
 
 	my $ctime = time();
 
@@ -343,6 +371,42 @@ sub update_vm_network {
     }
 
 	return $dbconf;
+}
+
+sub update_vm_disk {
+    my ($d, $vmid, $dbconf, $status_cfg, $type) = @_;
+
+    my $statushash = {};
+
+    if($dbconf->{disk}->{diskread_last} <= $d->{diskread}) {
+        $dbconf->{disk}->{diskread} += ($d->{diskread} - $dbconf->{disk}->{diskread_last});
+    }
+
+    if($dbconf->{disk}->{diskwrite_last} <= $d->{diskwrite}) {
+        $dbconf->{disk}->{diskwrite} += ($d->{diskwrite} - $dbconf->{disk}->{diskwrite_last});
+    }
+
+    $statushash->{diskreadsec} = $dbconf->{disk}->{diskread_sec} = int(($d->{diskread} - $dbconf->{disk}->{diskread_last}) / 10); # pvemonitord updates every 10 seconds
+    $statushash->{diskwritesec} = $dbconf->{disk}->{diskwrite_sec} = int(($d->{diskwrite} - $dbconf->{disk}->{diskwrite_last}) / 10);
+
+    $dbconf->{disk}->{diskread_last} = $d->{diskread};
+    $dbconf->{disk}->{diskwrite_last} = $d->{diskwrite};
+
+    my $ctime = time();
+
+    foreach my $id (keys %{$status_cfg->{ids}}) {
+        my $plugin_config = $status_cfg->{ids}->{$id};
+        next if $plugin_config->{disable};
+        my $plugin = PVE::Status::Plugin->lookup($plugin_config->{type});
+        if ($type eq 'openvz') {
+            $plugin->update_openvz_status($plugin_config, $vmid, $statushash, $ctime);
+        } elsif ($type eq 'qemu') {
+            $plugin->update_qemu_status($plugin_config, $vmid, $statushash, $ctime);    
+        }
+        
+    }
+
+    return $dbconf;
 }
 
 sub getConntrackSessionsOfCT {

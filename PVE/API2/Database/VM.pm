@@ -7,6 +7,8 @@ use PVE::Cluster;
 use PVE::Database;
 use PVE::API2::Database::Network::CT;
 use PVE::API2::Database::Network::VM;
+use PVE::API2::Database::Disk::CT;
+use PVE::API2::Database::Disk::VM;
 
 use Data::Dumper; # fixme: remove
 
@@ -42,6 +44,7 @@ sub register_handlers {
 	    my $result = [
 		{ name => 'all' },
 		{ name => 'network' },
+		{ name => 'disk' },
 		];
 
 	    return $result;
@@ -92,6 +95,11 @@ __PACKAGE__->register_method ({
     path => 'network',
 });
 
+__PACKAGE__->register_method ({
+    subclass => "PVE::API2::Database::Disk::VM",  
+    path => 'disk',
+});
+
 __PACKAGE__->register_handlers('vm');
 
 package PVE::API2::Database::CT;
@@ -103,6 +111,11 @@ use base qw(PVE::API2::Database::VMBase);
 __PACKAGE__->register_method ({
     subclass => "PVE::API2::Database::Network::CT",  
     path => 'network',
+});
+
+__PACKAGE__->register_method ({
+    subclass => "PVE::API2::Database::Disk::CT",  
+    path => 'disk',
 });
 
 __PACKAGE__->register_handlers('vm');

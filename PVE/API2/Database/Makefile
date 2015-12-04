@@ -4,7 +4,7 @@ PERLSOURCE = 			\
 	VM.pm			\
 	Host.pm
 
-SUBDIRS=Network
+SUBDIRS=Network Disk
 
 .PHONY: distclean
 distclean: clean
