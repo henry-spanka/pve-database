@@ -64,6 +64,20 @@ sub hup {
     $restart_request = 1;
 }
 
+sub update_node_status {
+    my ($status_cfg) = @_;
+
+    my $netdev = PVE::ProcFSTools::read_proc_net_dev();
+
+    my $nodename = PVE::INotify::nodename();
+
+    my $hostdbconf = PVE::Database::load_hostdb_conf();
+
+    $hostdbconf = PVE::Database::update_host_network($netdev, $nodename, $hostdbconf, $status_cfg);
+
+    PVE::Database::save_hostdb_conf($hostdbconf);
+}
+
 sub update_qemu_status {
     my ($status_cfg) = @_;
 
@@ -103,6 +117,12 @@ sub update_status {
     my $err;
 
     my $status_cfg = PVE::Cluster::cfs_read_file('status.cfg');
+
+    eval {
+        update_node_status($status_cfg);
+    };
+    $err = $@;
+    syslog('err', "qemu status update error: $err") if $err;
 
     eval {
 		update_qemu_status($status_cfg);
