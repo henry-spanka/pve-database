@@ -28,10 +28,8 @@ use PVE::SafeSyslog;
 
 use PVE::Status::Plugin;
 use PVE::Status::Graphite;
-use PVE::Status::InfluxDB;
 
 PVE::Status::Graphite->register();
-PVE::Status::InfluxDB->register();
 PVE::Status::Plugin->init();
 
 my $hostdb_conf_filename = "/etc/pve/local/host.db";
