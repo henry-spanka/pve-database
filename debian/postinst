@@ -5,14 +5,11 @@ set -e
 case "$1" in
     configure)
 	update-rc.d pvedatabased defaults 21 79 >/dev/null
-    update-rc.d pvemonitord defaults 21 79 >/dev/null
 	invoke-rc.d pvedatabased restart
-    invoke-rc.d pvemonitord restart
     ;;
 
     triggered)
         invoke-rc.d pvedatabased restart
-        invoke-rc.d pvemonitord restart
 	exit 0
     ;;
 
