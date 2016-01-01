@@ -1,3 +1,19 @@
+pve-database (2.0-1) unstable; urgency=low
+
+  * merge service pvemonitord into pvestatd and change update time to 30 seconds
+
+  * do not send metrics via status plugin
+
+  * remove InfluxDB status plugin
+
+  * Fix node status error description
+
+  * account and export host network metrics
+
+  * account and export disk read/write stats for OpenVZ/KVM
+
+ -- Henry Spanka - myVirtualserver <henry@myvirtualserver.de>  Fri, 01 Jan 2016 20:01:48 +0100
+
 pve-database (1.0-12) unstable; urgency=low
 
   * proxmox/pve-manager#13 - Add network metrics for Graphite/InfluxDB integration
