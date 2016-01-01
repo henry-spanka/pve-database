@@ -342,11 +342,11 @@ sub update_vm_network {
 		$dbconf->{network}->{pktsout} += ($d->{pktsout} - $dbconf->{network}->{pktsout_last});
 	}
 
-	$dbconf->{network}->{netin_sec} = int(($d->{netin} - $dbconf->{network}->{netin_last}) / 10); # pvemonitord updates every 10 seconds
-	$dbconf->{network}->{netout_sec} = int(($d->{netout} - $dbconf->{network}->{netout_last}) / 10);
+	$dbconf->{network}->{netin_sec} = int(($d->{netin} - $dbconf->{network}->{netin_last}) / 30); # pvestatd updates every 30 seconds
+	$dbconf->{network}->{netout_sec} = int(($d->{netout} - $dbconf->{network}->{netout_last}) / 30);
 
-	$dbconf->{network}->{pktsin_sec} = int(($d->{pktsin} - $dbconf->{network}->{pktsin_last}) / 10); # pvemonitord updates every 10 seconds
-	$dbconf->{network}->{pktsout_sec} = int(($d->{pktsout} - $dbconf->{network}->{pktsout_last}) / 10);
+	$dbconf->{network}->{pktsin_sec} = int(($d->{pktsin} - $dbconf->{network}->{pktsin_last}) / 30); # pvestatd updates every 30 seconds
+	$dbconf->{network}->{pktsout_sec} = int(($d->{pktsout} - $dbconf->{network}->{pktsout_last}) / 30);
 
 	$dbconf->{network}->{pktsin_last} = $d->{pktsin};
 	$dbconf->{network}->{pktsout_last} = $d->{pktsout};
@@ -372,8 +372,8 @@ sub update_vm_disk {
         $dbconf->{disk}->{diskwrite} += ($d->{diskwrite} - $dbconf->{disk}->{diskwrite_last});
     }
 
-    $dbconf->{disk}->{diskread_sec} = int(($d->{diskread} - $dbconf->{disk}->{diskread_last}) / 10); # pvemonitord updates every 10 seconds
-    $dbconf->{disk}->{diskwrite_sec} = int(($d->{diskwrite} - $dbconf->{disk}->{diskwrite_last}) / 10);
+    $dbconf->{disk}->{diskread_sec} = int(($d->{diskread} - $dbconf->{disk}->{diskread_last}) / 30); # pvestatd updates every 30 seconds
+    $dbconf->{disk}->{diskwrite_sec} = int(($d->{diskwrite} - $dbconf->{disk}->{diskwrite_last}) / 30);
 
     $dbconf->{disk}->{diskread_last} = $d->{diskread};
     $dbconf->{disk}->{diskwrite_last} = $d->{diskwrite};
@@ -414,11 +414,11 @@ sub update_host_network {
         $dbconf->{network}->{pktsout} += ($pktsout - $dbconf->{network}->{pktsout_last});
     }
 
-    $dbconf->{network}->{netin_sec} = int(($netin - $dbconf->{network}->{netin_last}) / 10); # pvemonitord updates every 10 seconds
-    $dbconf->{network}->{netout_sec} = int(($netout - $dbconf->{network}->{netout_last}) / 10);
+    $dbconf->{network}->{netin_sec} = int(($netin - $dbconf->{network}->{netin_last}) / 30); # pvestatd updates every 30 seconds
+    $dbconf->{network}->{netout_sec} = int(($netout - $dbconf->{network}->{netout_last}) / 30);
 
-    $dbconf->{network}->{pktsin_sec} = int(($pktsin - $dbconf->{network}->{pktsin_last}) / 10); # pvemonitord updates every 10 seconds
-    $dbconf->{network}->{pktsout_sec} = int(($pktsout - $dbconf->{network}->{pktsout_last}) / 10);
+    $dbconf->{network}->{pktsin_sec} = int(($pktsin - $dbconf->{network}->{pktsin_last}) / 30); # pvestatd updates every 30 seconds
+    $dbconf->{network}->{pktsout_sec} = int(($pktsout - $dbconf->{network}->{pktsout_last}) / 30);
 
 
     $dbconf->{network}->{netin_last} = $netin;
